@@ -197,3 +197,20 @@ class MpwikFormatter(GenericDataFormatter):
         }
 
         return fixed_params
+
+    
+    def get_default_model_params(self):
+        """Returns default optimised model parameters."""
+
+        model_params = {
+            'dropout_rate': 0.3,
+            'hidden_layer_size': 320,
+            'learning_rate': 0.001,
+            'minibatch_size': 128,
+            'max_gradient_norm': 100.,
+            'num_heads': 4,
+            'stack_size': 1
+        }
+
+        return model_params
+    

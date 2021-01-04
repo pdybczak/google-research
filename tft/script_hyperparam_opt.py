@@ -167,7 +167,7 @@ def main(expt_name, use_gpu, restart_opt, model_folder, hyperparam_iterations,
 
 if __name__ == "__main__":
   os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
-  os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+  os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
   def get_args():
     """Returns settings from command line."""

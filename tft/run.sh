@@ -19,9 +19,9 @@
 
 # Modifiable experiment options.
 # Expt options include {volatility, electricity, traffic, favorita}
-EXPT=traffic
+EXPT=mpwik
 OUTPUT_FOLDER=~/tft_outputs  # Path to store data & experiment outputs
-USE_GPU=no
+USE_GPU=yes
 TESTING_MODE=yes  # If yes, trains a small model with little data to test script
 
 # Step 1: Setup environment.
@@ -42,9 +42,10 @@ set -e
 #python3 -m script_download_data $EXPT $OUTPUT_FOLDER
 
 # Step 3: Train & Test
-echo
-python3 -m script_train_fixed_params $EXPT $OUTPUT_FOLDER $USE_GPU $TEST_MODE
+
+# python3 -m script_train_fixed_params $EXPT $OUTPUT_FOLDER $USE_GPU $TEST_MODE
 
 # Uncomment below for full hyperparamter optimisation.
-# python3 -m script_hyperparam_opt $EXPT $OUTPUT_FOLDER $USE_GPU yes
+echo
+python3 -m script_hyperparam_opt $EXPT $OUTPUT_FOLDER $USE_GPU yes
 
