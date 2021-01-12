@@ -166,9 +166,6 @@ def main(expt_name, use_gpu, restart_opt, model_folder, hyperparam_iterations,
 
 
 if __name__ == "__main__":
-  os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
-  os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-
   def get_args():
     """Returns settings from command line."""
 
@@ -206,21 +203,30 @@ if __name__ == "__main__":
         choices=["yes", "no"],
         default="yes",
         help="Whether to re-run hyperparameter optimisation from scratch.")
+    
+    parser.add_argument(
+        "cuda_visible_devices",
+        default=0,
+        help="Which gpu to perform stuff on"
+    )
 
     args = parser.parse_known_args()[0]
 
     root_folder = None if args.output_folder == "." else args.output_folder
 
     return args.expt_name, root_folder, args.use_gpu == "yes", \
-        args.restart_hyperparam_opt
+        args.restart_hyperparam_opt, args.cuda_visible_devices
 
   # Load settings for default experiments
-  name, folder, use_tensorflow_with_gpu, restart = get_args()
+  name, folder, use_tensorflow_with_gpu, restart, cuda_visible_devices = get_args()
 
   print("Using output folder {}".format(folder))
 
   config = ExperimentConfig(name, folder)
   formatter = config.make_data_formatter()
+    
+  os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
+  os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
 
   # Customise inputs to main() for new datasets.
   main(

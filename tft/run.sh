@@ -23,6 +23,7 @@ EXPT=mpwik
 OUTPUT_FOLDER=~/tft_outputs  # Path to store data & experiment outputs
 USE_GPU=yes
 TESTING_MODE=yes  # If yes, trains a small model with little data to test script
+CUDA_VISIBLE_DEVICES='3' # comma separated ints (chceck if available via nvidia-smi)
 
 # Step 1: Setup environment.
 #echo
@@ -47,5 +48,5 @@ set -e
 
 # Uncomment below for full hyperparamter optimisation.
 echo
-python3 -m script_hyperparam_opt $EXPT $OUTPUT_FOLDER $USE_GPU yes
+python3 -m script_hyperparam_opt $EXPT $OUTPUT_FOLDER $USE_GPU yes $CUDA_VISIBLE_DEVICES
 
