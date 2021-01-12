@@ -335,7 +335,7 @@ class DistributedHyperparamOptManager(HyperparamOptManager):
     print("Loading params for {} search iterations form {}".format(
         self.total_search_iterations, self.serialised_ranges_path))
 
-    if os.path.exists(self.serialised_ranges_folder):
+    if os.path.exists(self.serialised_ranges_path):
       df = pd.read_csv(self.serialised_ranges_path, index_col=0)
     else:
       print("Unable to load - regenerating serach ranges instead")
