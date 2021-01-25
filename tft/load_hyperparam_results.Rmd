@@ -1,0 +1,146 @@
+---
+jupyter:
+  jupytext:
+    text_representation:
+      extension: .Rmd
+      format_name: rmarkdown
+      format_version: '1.2'
+      jupytext_version: 1.7.1
+  kernelspec:
+    display_name: Python [conda env:tf115] *
+    language: python
+    name: conda-env-tf115-py
+---
+
+```{python}
+import sys
+print(sys.version)
+```
+
+# Define hyperparam interpreter
+
+```{python}
+import pandas as pd
+import os
+import matplotlib.pyplot as plt
+
+PARAMS_THAT_CHANGE = [
+  'dropout_rate',
+  'hidden_layer_size',
+  'learning_rate',
+  'max_gradient_norm',
+  'minibatch_size',
+  'num_heads',
+  'stack_size'
+]
+
+class TftHyperParamInterpreter:
+  def __init__(self, results_folder):
+    self.results_folder = results_folder
+    self.results = self.load_results()
+    self.params = self.load_params()
+    self.board_info = self.get_board_info()
+    self.best_params = self.get_best_params()
+    
+  def load_results(self):
+    results = pd.read_csv(os.path.join(self.results_folder, 'results.csv'), index_col=1)
+    results.index = results['Unnamed: 0']
+    results.drop('Unnamed: 0', axis=1, inplace=True)
+    results.index.name = 'index'
+    
+    return results
+  
+  def load_params(self):
+    params =  pd.read_csv(os.path.join(self.results_folder, 'params.csv'), index_col=1)
+    params.index = params['Unnamed: 0']
+    params.drop('Unnamed: 0', axis=1, inplace=True)
+    params.index.name = 'parameters'
+    
+    return params
+  
+  def get_board_info(self):
+    board_info = self.params.loc[PARAMS_THAT_CHANGE].copy()
+    board_info['loss'] = None
+    for model in self.results.columns:
+      board_info.loc['loss', model] = self.results.loc['loss', model]
+    return board_info
+  
+  def get_best_params(self):
+    idxmin = self.results.loc['loss'].T.idxmin()
+    return self.board_info[idxmin]
+  
+  def get_best_loss(self):
+    idxmin = self.results.loc['loss'].T.idxmin()
+    return self.results.loc['loss', self.params[idxmin].name]
+  
+  def plot_losses(self):
+    plt.plot(self.results.loc['loss'].values, '.')
+    
+class TftDistrHyperParamInterpreter(TftHyperParamInterpreter):
+  def __init__(self, results_folder):
+    self.results_folder = results_folder
+    self.list_of_distr_results_folders = self.get_list_of_distr_results_folders()
+
+    self.results = self.load_distr_results()
+    self.params = self.load_distr_params()
+    self.board_info = self.get_board_info()
+    self.best_params = self.get_best_params()
+    
+  def get_list_of_distr_results_folders(self):
+    hyperparam_folder_names = [f for f in os.listdir('/home/pdybczak/tft_outputs_distr/saved_models/mpwik/main/') if f not in ['tmp', 'hyperparams']]
+    return [os.path.join(self.results_folder, folder_name) for folder_name in hyperparam_folder_names]
+    
+  def load_distr_results(self):
+    def load_results(folder_name):
+      results = pd.read_csv(os.path.join(folder_name, 'results.csv'), index_col=1)
+      results.index = results['Unnamed: 0']
+      results.drop('Unnamed: 0', axis=1, inplace=True)
+      results.index.name = 'index'
+    
+      return results
+    
+    distr_results = pd.concat([load_results(folder_name) for folder_name in self.get_list_of_distr_results_folders()], axis=1)
+    
+    return distr_results
+  
+  def load_distr_params(self):
+    def load_params(folder_name):
+      params = pd.read_csv(os.path.join(folder_name, 'params.csv'), index_col=1)
+      params.index = params['Unnamed: 0']
+      params.drop('Unnamed: 0', axis=1, inplace=True)
+      params.index.name = 'parameters'
+    
+      return params
+    
+    distr_params = pd.concat([load_params(folder_name) for folder_name in self.get_list_of_distr_results_folders()], axis=1)
+    
+    return distr_params
+```
+
+```{python}
+interp = TftHyperParamInterpreter('/home/pdybczak/tft_outputs/saved_models/mpwik/main/')
+```
+
+```{python}
+interp.board_info
+```
+
+```{python}
+interp.best_params
+```
+
+```{python}
+interp.get_best_loss()
+```
+
+```{python}
+interp.plot_losses()
+```
+
+```{python}
+# interp.board_info.to_csv('board_info.csv')
+```
+
+```{python}
+
+```
