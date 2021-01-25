@@ -1,0 +1,655 @@
+---
+jupyter:
+  jupytext:
+    text_representation:
+      extension: .Rmd
+      format_name: rmarkdown
+      format_version: '1.2'
+      jupytext_version: 1.7.1
+  kernelspec:
+    display_name: Python [conda env:tf115] *
+    language: python
+    name: conda-env-tf115-py
+---
+
+```{python}
+import sys
+print(sys.version)
+```
+
+```{python}
+# Uses pip3 to install necessary packages
+# # !pip3 install pyunpack wget patool plotly cufflinks --user
+
+# Resets the IPython kernel to import the installed package.
+import IPython
+app = IPython.Application.instance()
+app.kernel.do_shutdown(True)
+
+```
+
+```{python}
+import sys
+print(sys.version)
+
+import pandas as pd
+
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+import os
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   # see issue #152
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
+```
+
+```{python}
+os.getcwd()
+```
+
+```{python}
+# Download parameters
+expt_name = 'mpwik'                                  # Name of default experiment
+output_folder = '~/tft_outputs'   # Root folder to save experiment outputs
+
+csv_file = os.path.join(output_folder,'data','mpwik', 'mpwik_tft_script_ready.csv')
+
+# Load the downloaded data
+df = pd.read_csv(csv_file, index_col=0, parse_dates=[0])
+```
+
+```{python}
+list(df.columns)
+```
+
+## translate timestamp to seconds and add dummy static  
+do this one time and save new dataframe as csv
+
+```{python}
+# import numpy as np
+
+# x=df.index-df.index.min()
+# def get_seconds_from_td(td):
+#     return (td.days*1440*60 + td.seconds)/60/10
+# df['sec_from_start'] = x.map(get_seconds_from_td)
+# df['dummy_static'] = np.zeros(df.shape[0])
+# df.reset_index(inplace=True)
+# df.drop('time', axis=1, inplace=True)
+# df['index'] = 0
+# df
+```
+
+## define formatter
+
+```{python}
+from data_formatters.base import GenericDataFormatter, DataTypes, InputTypes
+
+# View avialable inputs and data types.
+print("Available data types:")
+for option in DataTypes:
+    print(option)
+
+print()
+print("Avaialbe input types:")
+for option in InputTypes:
+    print(option)
+```
+
+### optional - change format
+
+```{python}
+# do_not_change_form_columns_list = ['sum_all', 'sec_from_start']
+# def get_new_format(colname, current_format):
+#   if colname in do_not_change_form_columns_list:
+#     return 'float64'
+#   elif current_format == 'float64':
+#     return 'float16'
+#   elif current_format == 'int64':
+#     return 'int16'
+#   else:
+#     return current_format
+
+# dtype_dict = {colname: get_new_format(colname, current_format) for colname, current_format in  df.dtypes.iteritems()}
+
+# for k, v in dtype_dict.items():
+#     df[k] = df[k].astype(v)
+```
+
+### formatter
+
+```{python}
+from libs import utils        # Load TFT helper functions
+import sklearn.preprocessing  # Used for data standardization
+
+# Implement formatting functions
+class MpwikFormatter(GenericDataFormatter):
+    """Defines and formats data for the traffic dataset.
+
+    This also performs z-score normalization across the entire dataset, hence
+    re-uses most of the same functions as volatility.
+
+    Attributes:
+    column_definition: Defines input and data type of column used in the
+      experiment.
+    identifiers: Entity identifiers used in experiments.
+    """
+   
+    # This defines the types used by each column
+    _column_definition = [
+      ('index', DataTypes.REAL_VALUED, InputTypes.ID),  
+      ('dummy_static', DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
+      
+      ('sec_from_start', DataTypes.REAL_VALUED, InputTypes.TIME),
+      
+      ('sum_all', DataTypes.REAL_VALUED, InputTypes.TARGET),
+
+      ('hour', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
+      ('dayofweek', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
+      ('dayofyear', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
+      ('month', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
+      ('Sport events Wroclaw', DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
+      ('TV events', DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
+      ('Holidays', DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
+
+      #       ('categorical_id', DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
+
+      ('value_S', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+      ('value_N', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+      ('value_E', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+      ('pompa1', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+      ('pompa2', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+      ('pompa3', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+      ('pompa4', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+      ('pompa5', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+      ('pompa6', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+      ('temperature', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+      ('Czek_value_mean', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+      ('Czek_value_min', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+      ('Czek_value_max', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+      ('Czek_value_std', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+      ('Bys_value_mean', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+      ('Bys_value_min', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+      ('Bys_value_max', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+      ('Bys_value_std', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT)
+    ]
+
+    def split_data(self, df, valid_boundary=198_388, test_boundary=242_827):
+        """Splits data frame into training-validation-test data frames.
+
+        This also calibrates scaling object, and transforms data for each split.
+
+        Args:
+          df: Source data frame to split.
+          valid_boundary: Starting year for validation data
+          test_boundary: Starting year for test data
+
+        Returns:
+          Tuple of transformed (train, valid, test) data.
+        """
+
+        print('Formatting train-valid-test splits.')
+
+        train = df.loc[df.index < valid_boundary]
+        valid = df.loc[(df.index >= valid_boundary - 7) & (df.index < test_boundary)]
+        test = df.loc[df.index >= test_boundary - 7]
+    
+        print(train.shape, valid.shape, test.shape)
+        self.set_scalers(train)
+
+        return (self.transform_inputs(data) for data in [train, valid, test])
+
+    def set_scalers(self, df):
+        """Calibrates scalers using the data supplied.
+
+        Args:
+          df: Data to use to calibrate scalers.
+        """
+        print('Setting scalers with training data...')
+
+        column_definitions = self.get_column_definition()
+        id_column = utils.get_single_col_by_input_type(InputTypes.ID,
+                                                       column_definitions)
+        target_column = utils.get_single_col_by_input_type(InputTypes.TARGET,
+                                                           column_definitions)
+
+        # Extract identifiers in case required
+        self.identifiers = list(df[id_column].unique())
+
+        # Format real scalers
+        real_inputs = utils.extract_cols_from_data_type(
+            DataTypes.REAL_VALUED, column_definitions,
+            {InputTypes.ID, InputTypes.TIME})
+
+        data = df[real_inputs].values
+        self._real_scalers = sklearn.preprocessing.StandardScaler().fit(data)
+        self._target_scaler = sklearn.preprocessing.StandardScaler().fit(
+            df[[target_column]].values)  # used for predictions
+
+        # Format categorical scalers
+        categorical_inputs = utils.extract_cols_from_data_type(
+            DataTypes.CATEGORICAL, column_definitions,
+            {InputTypes.ID, InputTypes.TIME})
+
+        categorical_scalers = {}
+        num_classes = []
+        for col in categorical_inputs:
+            # Set all to str so that we don't have mixed integer/string columns
+            srs = df[col].apply(str)
+            categorical_scalers[col] = sklearn.preprocessing.LabelEncoder().fit(
+              srs.values)
+            num_classes.append(srs.nunique())
+
+        # Set categorical scaler outputs
+        self._cat_scalers = categorical_scalers
+        self._num_classes_per_cat_input = num_classes
+        
+    def transform_inputs(self, df):
+        """Performs feature transformations.
+
+        This includes both feature engineering, preprocessing and normalisation.
+
+        Args:
+          df: Data frame to transform.
+
+        Returns:
+          Transformed data frame.
+
+        """
+        output = df.copy()
+
+        if self._real_scalers is None and self._cat_scalers is None:
+            raise ValueError('Scalers have not been set!')
+
+        column_definitions = self.get_column_definition()
+
+        real_inputs = utils.extract_cols_from_data_type(
+            DataTypes.REAL_VALUED, column_definitions,
+            {InputTypes.ID, InputTypes.TIME})
+        categorical_inputs = utils.extract_cols_from_data_type(
+            DataTypes.CATEGORICAL, column_definitions,
+            {InputTypes.ID, InputTypes.TIME})
+
+        # Format real inputs
+        output[real_inputs] = self._real_scalers.transform(df[real_inputs].values)
+
+        # Format categorical inputs
+        for col in categorical_inputs:
+            string_df = df[col].apply(str)
+            output[col] = self._cat_scalers[col].transform(string_df)
+
+        return output
+
+    def format_predictions(self, predictions):
+        """Reverts any normalisation to give predictions in original scale.
+
+        Args:
+          predictions: Dataframe of model predictions.
+
+        Returns:
+          Data frame of unnormalised predictions.
+        """
+        output = predictions.copy()
+
+        column_names = predictions.columns
+
+        for col in column_names:
+            if col not in {'forecast_time', 'identifier'}:
+                output[col] = self._target_scaler.inverse_transform(predictions[col])
+
+        return output
+   
+   
+    def get_fixed_params(self):
+        """Returns fixed model parameters for experiments."""
+
+        fixed_params = {
+            'total_time_steps': 6*26,     # Total width of the Temporal Fusion Decoder
+            'num_encoder_steps': 6*25,    # Length of LSTM decoder (ie. # historical inputs)
+            'num_epochs': 100,            # Max number of epochs for training
+            'early_stopping_patience': 5, # Early stopping threshold for # iterations with no loss improvement
+            'multiprocessing_workers': 5  # Number of multi-processing workers
+        }
+
+        return fixed_params
+```
+
+```{python}
+# parameters
+# dropout_rate               0.2
+# hidden_layer_size          240
+# learning_rate           0.0001
+# max_gradient_norm          1.0
+# minibatch_size              64
+# num_heads                    4
+# stack_size                   1
+# loss                 0.0358445
+```
+
+## create model
+
+
+### define parameters
+
+```{python}
+# Create a data formatter
+data_formatter = MpwikFormatter()
+
+# Split data
+train, valid, test = data_formatter.split_data(df)
+
+data_params = data_formatter.get_experiment_params()
+
+model_params = {'dropout_rate': 0.2,      # Dropout discard rate
+                'hidden_layer_size': 240, # Internal state size of TFT
+                'learning_rate': 0.0001,   # ADAM initial learning rate
+                'minibatch_size': 64,    # Minibatch size for training
+                'max_gradient_norm': 1.,# Max norm for gradient clipping
+                'num_heads': 4,           # Number of heads for multi-head attention
+                'stack_size': 1           # Number of stacks (default 1 for interpretability)
+               }
+
+# Folder to save network weights during training.
+model_folder = os.path.join(output_folder, 'saved_models', 'mpwik', 'fixed')
+model_params['model_folder'] = model_folder
+
+model_params.update(data_params)
+```
+
+### do cuda stuff
+
+```{python}
+from tensorflow.python.client import device_lib
+
+def get_available_gpus():
+    local_device_protos = device_lib.list_local_devices()
+    return [x.name for x in local_device_protos if x.device_type == 'GPU']
+
+get_available_gpus()
+```
+
+```{python}
+import tensorflow as tf
+from libs.tft_model import TemporalFusionTransformer
+
+# Specify GPU usage
+tf_config = utils.get_default_tensorflow_config(tf_device="gpu", gpu_id=0)
+```
+
+```{python}
+model_folder
+```
+
+```{python}
+train.shape
+```
+
+### training loop
+
+```{python}
+tf.reset_default_graph()
+with tf.Graph().as_default(), tf.Session(config=tf_config) as sess:
+
+    tf.keras.backend.set_session(sess)
+   
+    # Create a TFT model
+    model = TemporalFusionTransformer(model_params,
+                                    use_cudnn=True) # Run model on GPU using CuDNNLSTM cells
+
+    # Sample data into minibatches for training
+    if not model.training_data_cached():
+        model.cache_batched_data(train, "train")
+        model.cache_batched_data(valid, "valid")
+
+    # Train and save model
+    model.fit()
+    model.save(model_folder)
+    
+    
+# tf.reset_default_graph()
+# with tf.Graph().as_default(), tf.Session(config=tf_config) as sess:
+
+#     tf.keras.backend.set_session(sess)
+   
+#     # Create a TFT model
+#     model = TemporalFusionTransformer(model_params,
+#                                     use_cudnn=True) # Run model on GPU using CuDNNLSTM cells
+#     model.load(model_folder)
+#     # Sample data into minibatches for training
+#     if not model.training_data_cached():
+#         model.cache_batched_data(train, "train")
+#         model.cache_batched_data(valid, "valid")
+
+#     # Train and save model
+#     model.fit()
+#     model.save(model_folder)
+```
+
+/home/pdybczak/rs_work/rnd/tft/original_implementation_new_data/repo/tft/outputs/saved_models/mpwik/fixed/TemporalFusionTransformer.ckpt  
+loss: 0.0561 - val_loss: 0.1070
+
+
+## load and evaluate results
+
+```{python}
+tf.reset_default_graph()
+with tf.Graph().as_default(), tf.Session(config=tf_config) as sess:
+
+    tf.keras.backend.set_session(sess)
+   
+    # Create a new model & load weights
+    model = TemporalFusionTransformer(model_params,
+                                    use_cudnn=True)
+    model.load(model_folder)
+   
+    # Make forecasts
+#     output_map = model.predict(test, return_targets=True)
+    output_map = model.predict(valid, return_targets=True)
+
+    targets = data_formatter.format_predictions(output_map["targets"])
+
+    # Format predictions
+    p50_forecast = data_formatter.format_predictions(output_map["p50"])
+    p90_forecast = data_formatter.format_predictions(output_map["p90"])
+
+    def extract_numerical_data(data):
+        """Strips out forecast time and identifier columns."""
+        return data[[
+          col for col in data.columns
+          if col not in {"forecast_time", "identifier"}
+        ]]
+
+    # Compute Losses
+    p50_loss = utils.numpy_normalised_quantile_loss(
+        extract_numerical_data(targets.astype('float64')), extract_numerical_data(p50_forecast),
+        0.5)
+    p90_loss = utils.numpy_normalised_quantile_loss(
+        extract_numerical_data(targets.astype('float64')), extract_numerical_data(p90_forecast),
+        0.9)
+```
+
+```{python}
+from sklearn.metrics import r2_score
+from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_absolute_error
+
+class TFTEvaluator():
+  def __init__(self, output_map, data_formatter, tftmodel):
+    self.output_map = output_map
+    self.data_formatter = data_formatter
+    self.tftmodel = tftmodel
+    self.output_map_formatted = self.format_output_map()
+    self.list_of_metrics = [r2_score, mean_squared_error, mean_absolute_error]
+    
+  def format_output_map(self):
+    return {k : self.data_formatter.format_predictions(v)for k,v in self.output_map.items()}
+  
+  def get_output_map_columns(self):
+    return list(output_map['targets'].columns)
+  
+  def calculate_quantile_loss_metrics(self):
+    def extract_numerical_data(data):
+      """Strips out forecast time and identifier columns."""
+      return data[[
+        col for col in data.columns
+        if col not in {"forecast_time", "identifier"}
+      ]]
+      
+    return {
+      f'p{int(100*quantile)}_loss' : utils.numpy_normalised_quantile_loss(
+        extract_numerical_data(self.output_map_formatted['targets']), extract_numerical_data(self.output_map_formatted[f'p{int(100*quantile)}']),
+        quantile
+      ).mean()
+      for quantile in self.tftmodel.quantiles
+    }
+  
+  def calculate_sklearn_metrics(self, t='t+0'):
+    return {metric.__name__: {quantile_name: metric(quantile_predictions, self.output_map_formatted['targets']) for quantile_name, quantile_predictions in self.output_map_formatted.items() if
+            quantile_name!='targets'} for metric in self.list_of_metrics}
+  
+  def plot_predictions(self, t='t+0'):
+    plt.figure(figsize=(30,15))
+    plt.plot(self.output_map_formatted['targets'][t], label='targets')
+    plt.fill_between(self.output_map_formatted['p10'][t].index, self.output_map_formatted['p10'][t], self.output_map_formatted['p90'][t], label='p10-p90', color='g', alpha=.3)
+    plt.plot(self.output_map_formatted['p50'][t], label='p50')
+    plt.legend()
+
+```
+
+```{python}
+evaluator = TFTEvaluator(output_map, data_formatter, model)
+```
+
+```{python}
+evaluator.plot_predictions(t='t+5')
+```
+
+```{python}
+evaluator.calculate_sklearn_metrics(t='t+5')
+```
+
+# Interpretability Use Cases
+
+
+## Generate Weights for Interpretability
+
+```{python}
+# Store outputs in maps
+counts = 0
+interpretability_weights = {k: None for k in ['decoder_self_attn',
+                                              'static_flags', 'historical_flags', 'future_flags']}
+
+tf.reset_default_graph()
+with tf.Graph().as_default(), tf.Session(config=tf_config) as sess:
+
+    tf.keras.backend.set_session(sess)
+   
+    # Create a new model & load weights
+    model = TemporalFusionTransformer(model_params,
+                                    use_cudnn=True)
+    model.load(model_folder)
+    for identifier, sliced in valid.groupby('index'):
+       
+        print("Getting attention weights for {}".format(identifier))
+        weights = model.get_attention(sliced)
+       
+        for k in interpretability_weights:
+            w = weights[k]
+           
+            # Average attentin across heads if necessary
+            if k == 'decoder_self_attn':
+                w = w.mean(axis=0)
+           
+                # Store a single matrix for weights to reduce memory footprint
+                batch_size, _, _ = w.shape                
+                counts += batch_size
+           
+            if interpretability_weights[k] is None:
+                interpretability_weights[k] = w.sum(axis=0)
+            else:
+                interpretability_weights[k] += w.sum(axis=0)
+
+interpretability_weight = {k: interpretability_weights[k]/counts for k in interpretability_weights}
+
+print('Done.')
+
+```
+
+## Use Case 1: Analyzing Variable Importance
+
+```{python}
+import numpy as np
+def get_range(static_gate, axis=None):
+    """Returns the mean, 10th, 50th and 90th percentile of variable importance weights."""
+    return {'Mean': static_gate.mean(axis=axis),
+               '10%': np.quantile(static_gate, 0.1, axis=axis),
+               '50%': np.quantile(static_gate, 0.5, axis=axis),
+               '90%': np.quantile(static_gate, 0.9, axis=axis)}
+```
+
+```{python}
+def flatten(x):
+    static_attn = x
+    static_attn = static_attn.reshape([-1, static_attn.shape[-1]])
+    return static_attn
+
+static_attn = flatten(interpretability_weights['static_flags'])
+m = get_range(static_attn, axis=0)
+pd.DataFrame({k: pd.Series(m[k], index=['dummy_static']) for k in m})
+```
+
+```{python}
+x = flatten(interpretability_weights['historical_flags'])
+m = get_range(x, axis=0)
+pd.DataFrame({k: pd.Series(m[k]) for k in m})
+```
+
+```{python}
+x = flatten(interpretability_weights['future_flags'])
+m = get_range(x, axis=0)
+pd.DataFrame({k: pd.Series(m[k]) for k in m})
+```
+
+```{python}
+
+```
+
+```{python}
+# Plotting libraries & Functions
+import plotly.offline
+from plotly.offline import download_plotlyjs, init_notebook_mode, plot
+import plotly.graph_objs as go
+import cufflinks as cf
+from IPython.display import HTML
+
+# Loads plotly charts
+def iplot(fig, s='plot.html'):
+    filename = os.path.join(output_folder, s)
+    plotly.offline.plot(fig, filename=filename, auto_open=False)
+    return HTML(filename)    
+
+def plotly_chart(df, title=None, kind='scatter', x_label=None, y_label=None, secondary_y=None, fill=None,
+                shape=None, subplots=False):
+   
+    fig = df.iplot(asFigure=True, title=title, kind=kind, xTitle=x_label, yTitle=y_label, secondary_y=secondary_y,
+                  fill=fill, subplots=subplots, shape=shape)
+
+    return iplot(fig)
+```
+
+```{python}
+self_attn = interpretability_weights['decoder_self_attn']
+
+means = pd.DataFrame({"horizon={}".format(k): self_attn[model.num_encoder_steps+k-1, :]
+                      for k in [1
+#                                 , 5, 10, 15, 20
+                               ]})
+means.index -= model.num_encoder_steps
+
+plotly_chart(means,
+             x_label="Positiion Index (n)",
+             y_label="Mean Attention Weight",
+             title="Average Attention Pattern at Various Prediction Horizons")
+```
+
+```{python}
+
+```
