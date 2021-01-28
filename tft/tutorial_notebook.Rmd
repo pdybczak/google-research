@@ -374,17 +374,11 @@ from libs.tft_model import TemporalFusionTransformer
 tf_config = utils.get_default_tensorflow_config(tf_device="gpu", gpu_id=0)
 ```
 
-```{python}
-model_folder
-```
-
-```{python}
-train.shape
-```
-
 ### training loop
 
 ```{python}
+# without loading previous checkpoint
+
 tf.reset_default_graph()
 with tf.Graph().as_default(), tf.Session(config=tf_config) as sess:
 
@@ -403,7 +397,8 @@ with tf.Graph().as_default(), tf.Session(config=tf_config) as sess:
     model.fit()
     model.save(model_folder)
     
-    
+# with loading previous checkpoint
+
 # tf.reset_default_graph()
 # with tf.Graph().as_default(), tf.Session(config=tf_config) as sess:
 
@@ -422,10 +417,6 @@ with tf.Graph().as_default(), tf.Session(config=tf_config) as sess:
 #     model.fit()
 #     model.save(model_folder)
 ```
-
-/home/pdybczak/rs_work/rnd/tft/original_implementation_new_data/repo/tft/outputs/saved_models/mpwik/fixed/TemporalFusionTransformer.ckpt  
-loss: 0.0561 - val_loss: 0.1070
-
 
 ## load and evaluate results
 
@@ -470,6 +461,7 @@ with tf.Graph().as_default(), tf.Session(config=tf_config) as sess:
 from sklearn.metrics import r2_score
 from sklearn.metrics import mean_squared_error
 from sklearn.metrics import mean_absolute_error
+import matplotlib.pyplot as plt
 
 class TFTEvaluator():
   def __init__(self, output_map, data_formatter, tftmodel):
@@ -480,7 +472,7 @@ class TFTEvaluator():
     self.list_of_metrics = [r2_score, mean_squared_error, mean_absolute_error]
     
   def format_output_map(self):
-    return {k : self.data_formatter.format_predictions(v)for k,v in self.output_map.items()}
+    return {k : self.data_formatter.format_predictions(v) for k,v in self.output_map.items()}
   
   def get_output_map_columns(self):
     return list(output_map['targets'].columns)
@@ -506,12 +498,12 @@ class TFTEvaluator():
             quantile_name!='targets'} for metric in self.list_of_metrics}
   
   def plot_predictions(self, t='t+0'):
-    plt.figure(figsize=(30,15))
+    plt.figure(figsize=(15,5))
     plt.plot(self.output_map_formatted['targets'][t], label='targets')
     plt.fill_between(self.output_map_formatted['p10'][t].index, self.output_map_formatted['p10'][t], self.output_map_formatted['p90'][t], label='p10-p90', color='g', alpha=.3)
     plt.plot(self.output_map_formatted['p50'][t], label='p50')
     plt.legend()
-
+    plt.show();
 ```
 
 ```{python}
@@ -523,7 +515,7 @@ evaluator.plot_predictions(t='t+5')
 ```
 
 ```{python}
-evaluator.calculate_sklearn_metrics(t='t+5')
+evaluator.calculate_sklearn_metrics(t='t+6')
 ```
 
 # Interpretability Use Cases
@@ -573,44 +565,95 @@ print('Done.')
 
 ```
 
-## Use Case 1: Analyzing Variable Importance
-
 ```{python}
 import numpy as np
-def get_range(static_gate, axis=None):
+class WeightAnalyzer:
+  def __init__(self, interpretability_weights, data_formatter):
+    self.interpretability_weights = interpretability_weights
+    self.data_formatter = data_formatter
+    self.static_weights = self.get_static_weights()
+    self.historical_weights = self.get_historical_weights()
+    self.future_weights = self.get_future_weights()
+    
+    
+  @staticmethod
+  def get_range(static_gate, axis=None):
     """Returns the mean, 10th, 50th and 90th percentile of variable importance weights."""
-    return {'Mean': static_gate.mean(axis=axis),
-               '10%': np.quantile(static_gate, 0.1, axis=axis),
-               '50%': np.quantile(static_gate, 0.5, axis=axis),
-               '90%': np.quantile(static_gate, 0.9, axis=axis)}
-```
-
-```{python}
-def flatten(x):
+    return {
+      'Mean': static_gate.mean(axis=axis),
+#       '10%': np.quantile(static_gate, 0.1, axis=axis),
+      '50%': np.quantile(static_gate, 0.5, axis=axis),
+#       '90%': np.quantile(static_gate, 0.9, axis=axis)
+    }
+  
+  @staticmethod
+  def flatten(x):
     static_attn = x
     static_attn = static_attn.reshape([-1, static_attn.shape[-1]])
     return static_attn
+  
+  def get_input_type(self, desired_input_type):
+    list_of_column_definitions = self.data_formatter.get_column_definition()
+    list_of_correct_type_column_names = [column_name for column_name, _, input_type in list_of_column_definitions if desired_input_type == input_type]
+    return list_of_correct_type_column_names
+  
+  def get_static_weights(self):
+    static_attn = self.flatten(self.interpretability_weights['static_flags'])
+    m = self.get_range(static_attn, axis=0)
+    index = self.get_input_type(InputTypes.STATIC_INPUT)
+    static_weights_df = pd.DataFrame({k: pd.Series(m[k], index=index) for k in m})
+    static_weights_df.name = "Static Weights"
+    return static_weights_df
+    
+  def get_historical_weights(self):
+    x = self.flatten(self.interpretability_weights['historical_flags'])
+    m = self.get_range(x, axis=0)
+    index = self.get_input_type(InputTypes.OBSERVED_INPUT) + self.get_input_type(InputTypes.KNOWN_INPUT) + self.get_input_type(InputTypes.TARGET) 
+    historical_weights_df = pd.DataFrame({k: pd.Series(m[k], index=index) for k in m})
+    historical_weights_df.name = "Historical Weights"
+    return historical_weights_df
 
-static_attn = flatten(interpretability_weights['static_flags'])
-m = get_range(static_attn, axis=0)
-pd.DataFrame({k: pd.Series(m[k], index=['dummy_static']) for k in m})
+  def get_future_weights(self):
+    x = self.flatten(self.interpretability_weights['future_flags'])
+    m = self.get_range(x, axis=0)
+    index = self.get_input_type(InputTypes.KNOWN_INPUT)
+    future_weights_df = pd.DataFrame({k: pd.Series(m[k], index=index) for k in m})
+    future_weights_df.name = "Future Weights"
+    return future_weights_df
+  
+  def plot_weights(self, df, sort_by=None):
+    if sort_by is None:
+      sort_by = list(self.get_range(pd.Series([6,9])).keys())[0]
+    df.sort_values(by=sort_by, ascending=False).plot.bar(title=df.name)
+    
+  def plot_all_weights(self):
+    for weights_df in [self.static_weights, self.historical_weights, self.future_weights]:
+      self.plot_weights(weights_df)
 ```
 
 ```{python}
-x = flatten(interpretability_weights['historical_flags'])
-m = get_range(x, axis=0)
-pd.DataFrame({k: pd.Series(m[k]) for k in m})
+wa = WeightAnalyzer(interpretability_weights=interpretability_weights, data_formatter=data_formatter)
 ```
+
+### plot all possible weights
 
 ```{python}
-x = flatten(interpretability_weights['future_flags'])
-m = get_range(x, axis=0)
-pd.DataFrame({k: pd.Series(m[k]) for k in m})
+wa.plot_all_weights()
 ```
+
+### Plot choosen weights
 
 ```{python}
-
+wa.plot_weights(wa.historical_weights)
 ```
+
+### Get choosen weights dataframe
+
+```{python}
+wa.historical_weights.head()
+```
+
+## attention
 
 ```{python}
 # Plotting libraries & Functions

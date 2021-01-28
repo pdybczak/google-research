@@ -236,4 +236,5 @@ if __name__ == "__main__":
       model_folder=os.path.join(config.model_folder, "main"),
       hyperparam_iterations=config.hyperparam_iterations,
       data_csv_path=config.data_csv_path,
-      data_formatter=formatter)
+      data_formatter=formatter
+  )
