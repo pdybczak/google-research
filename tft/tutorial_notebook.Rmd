@@ -189,8 +189,8 @@ class MpwikFormatter(GenericDataFormatter):
         print('Formatting train-valid-test splits.')
 
         train = df.loc[df.index < valid_boundary]
-        valid = df.loc[(df.index >= valid_boundary - 7) & (df.index < test_boundary)]
-        test = df.loc[df.index >= test_boundary - 7]
+        valid = df.loc[(df.index >= valid_boundary) & (df.index < test_boundary)]
+        test = df.loc[df.index >= test_boundary]
     
         print(train.shape, valid.shape, test.shape)
         self.set_scalers(train)
