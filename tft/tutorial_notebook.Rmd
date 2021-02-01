@@ -172,7 +172,7 @@ class MpwikFormatter(GenericDataFormatter):
       ('Bys_value_std', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT)
     ]
 
-    def split_data(self, df, valid_boundary=198_388, test_boundary=242_827):
+    def split_data(self, df, valid_boundary=138_872, test_boundary=198_388):
         """Splits data frame into training-validation-test data frames.
 
         This also calibrates scaling object, and transforms data for each split.
@@ -432,29 +432,7 @@ with tf.Graph().as_default(), tf.Session(config=tf_config) as sess:
     model.load(model_folder)
    
     # Make forecasts
-#     output_map = model.predict(test, return_targets=True)
-    output_map = model.predict(valid, return_targets=True)
-
-    targets = data_formatter.format_predictions(output_map["targets"])
-
-    # Format predictions
-    p50_forecast = data_formatter.format_predictions(output_map["p50"])
-    p90_forecast = data_formatter.format_predictions(output_map["p90"])
-
-    def extract_numerical_data(data):
-        """Strips out forecast time and identifier columns."""
-        return data[[
-          col for col in data.columns
-          if col not in {"forecast_time", "identifier"}
-        ]]
-
-    # Compute Losses
-    p50_loss = utils.numpy_normalised_quantile_loss(
-        extract_numerical_data(targets.astype('float64')), extract_numerical_data(p50_forecast),
-        0.5)
-    p90_loss = utils.numpy_normalised_quantile_loss(
-        extract_numerical_data(targets.astype('float64')), extract_numerical_data(p90_forecast),
-        0.9)
+    output_map = model.predict(test, return_targets=True)
 ```
 
 ```{python}
@@ -497,11 +475,13 @@ class TFTEvaluator():
     return {metric.__name__: {quantile_name: metric(quantile_predictions, self.output_map_formatted['targets']) for quantile_name, quantile_predictions in self.output_map_formatted.items() if
             quantile_name!='targets'} for metric in self.list_of_metrics}
   
-  def plot_predictions(self, t='t+0'):
+  def plot_predictions(self, t='t+0', start=0, end=None):
     plt.figure(figsize=(15,5))
-    plt.plot(self.output_map_formatted['targets'][t], label='targets')
-    plt.fill_between(self.output_map_formatted['p10'][t].index, self.output_map_formatted['p10'][t], self.output_map_formatted['p90'][t], label='p10-p90', color='g', alpha=.3)
-    plt.plot(self.output_map_formatted['p50'][t], label='p50')
+    if end is None:
+      end=self.output_map_formatted['targets'][t].shape[0]
+    plt.plot(self.output_map_formatted['targets'][t].iloc[start:end], label='targets')
+    plt.fill_between(self.output_map_formatted['p10'][t].iloc[start:end].index, self.output_map_formatted['p10'][t].iloc[start:end], self.output_map_formatted['p90'][t].iloc[start:end], label='p10-p90', color='g', alpha=.3)
+    plt.plot(self.output_map_formatted['p50'][t].iloc[start:end], label='p50')
     plt.legend()
     plt.show();
 ```

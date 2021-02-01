@@ -43,10 +43,10 @@ set -e
 #python3 -m script_download_data $EXPT $OUTPUT_FOLDER
 
 # Step 3: Train & Test
-
-# python3 -m script_train_fixed_params $EXPT $OUTPUT_FOLDER $USE_GPU $TEST_MODE
+echo
+CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES, python3 -m script_train_fixed_params $EXPT $OUTPUT_FOLDER $USE_GPU $TEST_MODE
 
 # Uncomment below for full hyperparamter optimisation.
-echo
-python3 -m script_hyperparam_opt $EXPT $OUTPUT_FOLDER $USE_GPU yes $CUDA_VISIBLE_DEVICES
+# echo
+# CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES, python3 -m script_hyperparam_opt $EXPT $OUTPUT_FOLDER $USE_GPU yes
 
