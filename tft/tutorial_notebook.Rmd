@@ -303,7 +303,7 @@ class MpwikFormatter(GenericDataFormatter):
 
         fixed_params = {
             'total_time_steps': 6*26,     # Total width of the Temporal Fusion Decoder
-            'num_encoder_steps': 6*25,    # Length of LSTM decoder (ie. # historical inputs)
+            'num_encoder_steps': 6*25+7,    # Length of LSTM decoder (ie. # historical inputs)
             'num_epochs': 100,            # Max number of epochs for training
             'early_stopping_patience': 5, # Early stopping threshold for # iterations with no loss improvement
             'multiprocessing_workers': 5  # Number of multi-processing workers
@@ -348,7 +348,7 @@ model_params = {'dropout_rate': 0.2,      # Dropout discard rate
                }
 
 # Folder to save network weights during training.
-model_folder = os.path.join(output_folder, 'saved_models', 'mpwik', 'fixed')
+model_folder = os.path.join(output_folder, 'saved_models', 'mpwik', 'ai-277')
 model_params['model_folder'] = model_folder
 
 model_params.update(data_params)

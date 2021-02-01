@@ -723,9 +723,12 @@ class TemporalFusionTransformer(object):
       time_steps = len(input_data)
       lags = self.time_steps
       x = input_data.values
-      if time_steps >= lags:
-        return np.stack(
-            [x[i:time_steps - (lags - 1) + i, :] for i in range(lags)], axis=1)
+#       if time_steps >= lags
+      andrzejowka = 6*24
+      nandrzejowek = 7
+      if lags + andrzejowka*nandrzejowek:
+        return np.stack([x[andrzejowka*i:andrzejowka*i+time_steps-(lags-1) - nandrzejowek*andrzejowka, :] for i in range(nandrzejowek)] + \
+  [x[nandrzejowek*andrzejowka + i: i + time_steps - (lags - 1), :] for i in range(lags)], axis=1)
 
       else:
         return None
@@ -781,7 +784,7 @@ class TemporalFusionTransformer(object):
     """Returns graph defining layers of the TFT."""
 
     # Size definitions.
-    time_steps = self.time_steps
+    time_steps = self.time_steps + 7
     combined_input_size = self.input_size
     encoder_steps = self.num_encoder_steps
 
