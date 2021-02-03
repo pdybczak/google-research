@@ -49,7 +49,7 @@ os.getcwd()
 ```{python}
 # Download parameters
 expt_name = 'mpwik'                                  # Name of default experiment
-output_folder = '~/tft_outputs'   # Root folder to save experiment outputs
+output_folder = '/home/pdybczak/tft_outputs/'   # Root folder to save experiment outputs
 
 csv_file = os.path.join(output_folder,'data','mpwik', 'mpwik_tft_script_ready.csv')
 
@@ -302,7 +302,7 @@ class MpwikFormatter(GenericDataFormatter):
         """Returns fixed model parameters for experiments."""
 
         fixed_params = {
-            'total_time_steps': 6*26,     # Total width of the Temporal Fusion Decoder
+            'total_time_steps': 6*25+1,     # Total width of the Temporal Fusion Decoder
             'num_encoder_steps': 6*25,    # Length of LSTM decoder (ie. # historical inputs)
             'num_epochs': 100,            # Max number of epochs for training
             'early_stopping_patience': 5, # Early stopping threshold for # iterations with no loss improvement
