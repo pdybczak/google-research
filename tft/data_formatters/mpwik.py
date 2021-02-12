@@ -60,7 +60,7 @@ class MpwikFormatter(GenericDataFormatter):
         ('Bys_value_std', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT)
     ]
 
-    def split_data(self, df, valid_boundary=198_388, test_boundary=242_827):
+    def split_data(self, df, valid_boundary=138_872, test_boundary=198_388):
         """Splits data frame into training-validation-test data frames.
 
         This also calibrates scaling object, and transforms data for each split.
@@ -77,9 +77,9 @@ class MpwikFormatter(GenericDataFormatter):
         print('Formatting train-valid-test splits.')
 
         train = df.loc[df.index < valid_boundary]
-        valid = df.loc[(df.index >= valid_boundary - 7) & (df.index < test_boundary)]
-        test = df.loc[df.index >= test_boundary - 7]
-
+        valid = df.loc[(df.index >= valid_boundary) & (df.index < test_boundary)]
+        test = df.loc[df.index >= test_boundary]
+    
         print(train.shape, valid.shape, test.shape)
         self.set_scalers(train)
 
@@ -189,10 +189,10 @@ class MpwikFormatter(GenericDataFormatter):
         """Returns fixed model parameters for experiments."""
 
         fixed_params = {
-            'total_time_steps': 6 * 26,  # Total width of the Temporal Fusion Decoder
-            'num_encoder_steps': 6 * 25,  # Length of LSTM decoder (ie. # historical inputs)
-            'num_epochs': 100,  # Max number of epochs for training
-            'early_stopping_patience': 5,  # Early stopping threshold for # iterations with no loss improvement
+            'total_time_steps': 6*25+1,     # Total width of the Temporal Fusion Decoder
+            'num_encoder_steps': 6*25,    # Length of LSTM decoder (ie. # historical inputs)
+            'num_epochs': 100,            # Max number of epochs for training
+            'early_stopping_patience': 5, # Early stopping threshold for # iterations with no loss improvement
             'multiprocessing_workers': 5  # Number of multi-processing workers
         }
 
