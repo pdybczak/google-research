@@ -51,7 +51,7 @@ class TftHyperParamInterpreter:
     results.drop('Unnamed: 0', axis=1, inplace=True)
     results.index.name = 'index'
     
-    return results.astype('float16', errors='ignore')
+    return results.astype('float64', errors='ignore')
   
   def load_params(self):
     params =  pd.read_csv(os.path.join(self.results_folder, 'params.csv'), index_col=1)
@@ -59,14 +59,14 @@ class TftHyperParamInterpreter:
     params.drop('Unnamed: 0', axis=1, inplace=True)
     params.index.name = 'parameters'
     
-    return params.astype('float16', errors='ignore')
+    return params.astype('float64', errors='ignore')
   
   def get_board_info(self):
     board_info = self.params.loc[PARAMS_THAT_CHANGE].copy()
     board_info['loss'] = None
     for model in self.results.columns:
       board_info.loc['loss', model] = self.results.loc['loss', model]
-    return board_info.T.dropna().astype('float16', errors='ignore')
+    return board_info.T.dropna().astype('float64', errors='ignore')
   
   def get_best_params(self):
     idxmin = self.results.loc['loss'].idxmin()
@@ -142,8 +142,9 @@ interp.plot_losses()
 
 ```{python}
 df = interp.board_info
-fig = px.parallel_coordinates(df
-                              , color="loss",
+
+fig = px.parallel_coordinates(interp.board_info,
+                              color="loss",
                               dimensions=['dropout_rate', 'hidden_layer_size', 'learning_rate', 'max_gradient_norm', 'minibatch_size', 'num_heads', 'stack_size', 'loss']
                              )
 fig.show()

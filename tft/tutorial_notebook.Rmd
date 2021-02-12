@@ -659,7 +659,7 @@ def plotly_chart(df, title=None, kind='scatter', x_label=None, y_label=None, sec
 ```
 
 ```{python}
-self_attn = interpretability_weights['decoder_self_attn']
+self_attn = interpretability_weight['decoder_self_attn']
 
 means = pd.DataFrame({"horizon={}".format(k): self_attn[model.num_encoder_steps+k-1, :]
                       for k in [1
