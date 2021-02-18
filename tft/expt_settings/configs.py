@@ -26,7 +26,7 @@ import data_formatters.electricity
 import data_formatters.favorita
 import data_formatters.traffic
 import data_formatters.volatility
-import data_formatters.tauron
+import data_formatters.mpwik
 
 
 class ExperimentConfig(object):
@@ -43,7 +43,7 @@ class ExperimentConfig(object):
       experiment.
   """
 
-  default_experiments = ['volatility', 'electricity', 'traffic', 'favorita', 'tauron']
+  default_experiments = ['volatility', 'electricity', 'traffic', 'favorita', 'mpwik']
 
   def __init__(self, experiment='volatility', root_folder=None):
     """Creates configs based on default experiment chosen.
@@ -83,7 +83,7 @@ class ExperimentConfig(object):
         'electricity': 'hourly_electricity.csv',
         'traffic': 'hourly_data.csv',
         'favorita': 'favorita_consolidated.csv',
-        'tauron': 'full.csv'
+        'mpwik': 'mpwik_tft_script_ready.csv'
     }
 
     return os.path.join(self.data_folder, csv_map[self.experiment])
@@ -105,7 +105,7 @@ class ExperimentConfig(object):
         'electricity': data_formatters.electricity.ElectricityFormatter,
         'traffic': data_formatters.traffic.TrafficFormatter,
         'favorita': data_formatters.favorita.FavoritaFormatter,
-        'tauron': data_formatters.tauron.TauronFormatter
+        'mpwik': data_formatters.mpwik.MpwikFormatter
     }
 
     return data_formatter_class[self.experiment]()

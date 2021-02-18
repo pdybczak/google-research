@@ -3,8 +3,8 @@
 
 # Modifiable experiment options.
 # Expt options include {volatility, electricity, traffic, favorita}
-EXPT=tauron
-OUTPUT_FOLDER=/home/mdobrzanski/tft_outputs_distr  # Path to store data & experiment outputs
+EXPT=mpwik
+OUTPUT_FOLDER=/home/pdybczak/tft_outputs_distr  # Path to store data & experiment outputs
 USE_GPU=yes
 
 set -e
