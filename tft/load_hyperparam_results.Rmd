@@ -90,7 +90,7 @@ class TftDistrHyperParamInterpreter(TftHyperParamInterpreter):
     self.best_params = self.get_best_params()
     
   def get_list_of_distr_results_folders(self):
-    hyperparam_folder_names = [f for f in os.listdir('/home/pdybczak/tft_outputs_distr/saved_models/mpwik/main/') if f not in ['tmp', 'hyperparams']]
+    hyperparam_folder_names = [f for f in os.listdir(self.results_folder) if f not in ['tmp', 'hyperparams']]
     return [os.path.join(self.results_folder, folder_name) for folder_name in hyperparam_folder_names]
     
   def load_distr_results(self):
@@ -121,10 +121,22 @@ class TftDistrHyperParamInterpreter(TftHyperParamInterpreter):
 ```
 
 ```{python}
-interp = TftHyperParamInterpreter('/home/pdybczak/tft_outputs/saved_models/mpwik/main/')
+# interp = TftHyperParamInterpreter('/home/pdybczak/tft_outputs/saved_models/mpwik/main/')
+interp = TftDistrHyperParamInterpreter('/home/pdybczak/tft_outputs_distr/saved_models/mpwik/pd_hyperparam_opt1/')
+# interp = TftDistrHyperParamInterpreter('/home/pdybczak/tft_outputs_distr/saved_models/mpwik/main/')
 ```
 
 ```{python}
+interp.get_list_of_distr_results_folders()
+```
+
+```{python}
+interp.results.shape
+```
+
+```{python}
+interp.board_info.index = [f"run_{i}" for i in range(interp.board_info.shape[0])]
+
 interp.board_info
 ```
 
